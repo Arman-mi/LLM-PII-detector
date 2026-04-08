@@ -1,0 +1,70 @@
+#mini-tecto-panel {
+  position: fixed;
+  top: 90px;
+  right: 20px;
+  width: 320px;
+  background: #111827;
+  color: white;
+  border: 1px solid #374151;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  z-index: 999999;
+  font-family: Arial, sans-serif;
+  overflow: hidden;
+}
+
+.mini-tecto-header {
+  background: #1f2937;
+  padding: 12px;
+  font-weight: 700;
+  border-bottom: 1px solid #374151;
+}
+
+.mini-tecto-body {
+  padding: 12px;
+  max-height: 240px;
+  overflow-y: auto;
+  font-size: 14px;
+}
+
+.mini-tecto-actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid #374151;
+}
+
+.mini-tecto-actions button {
+  flex: 1;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+}
+
+.mini-tecto-actions button:hover {
+  opacity: 0.92;
+}
+
+.mini-tecto-list {
+  margin: 10px 0 0 18px;
+  padding: 0;
+}
+
+.mini-tecto-list li {
+  margin-bottom: 8px;
+}
+
+.mini-tecto-type {
+  font-weight: 700;
+  margin-right: 6px;
+  color: #93c5fd;
+}
+
+.mini-tecto-text {
+  color: #e5e7eb;
+  word-break: break-word;
+}
