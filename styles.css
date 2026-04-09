@@ -2,7 +2,7 @@
   position: fixed;
   top: 90px;
   right: 20px;
-  width: 320px;
+  width: 340px;
   background: #111827;
   color: white;
   border: 1px solid #374151;
@@ -20,9 +20,36 @@
   border-bottom: 1px solid #374151;
 }
 
+.mini-tecto-status {
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  border-bottom: 1px solid #374151;
+}
+
+.mini-tecto-status-neutral {
+  background: #1f2937;
+  color: #d1d5db;
+}
+
+.mini-tecto-status-safe {
+  background: #052e16;
+  color: #bbf7d0;
+}
+
+.mini-tecto-status-warn {
+  background: #3b2f07;
+  color: #fde68a;
+}
+
+.mini-tecto-status-block {
+  background: #450a0a;
+  color: #fecaca;
+}
+
 .mini-tecto-body {
   padding: 12px;
-  max-height: 240px;
+  max-height: 260px;
   overflow-y: auto;
   font-size: 14px;
 }
@@ -50,21 +77,40 @@
 }
 
 .mini-tecto-list {
-  margin: 10px 0 0 18px;
+  margin: 0;
   padding: 0;
+  list-style: none;
 }
 
 .mini-tecto-list li {
-  margin-bottom: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid #1f2937;
+}
+
+.mini-tecto-list li:last-child {
+  border-bottom: none;
 }
 
 .mini-tecto-type {
   font-weight: 700;
-  margin-right: 6px;
+  margin-right: 8px;
   color: #93c5fd;
+}
+
+.mini-tecto-action {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fca5a5;
 }
 
 .mini-tecto-text {
   color: #e5e7eb;
   word-break: break-word;
+  margin-top: 4px;
+}
+
+.mini-tecto-reason {
+  color: #9ca3af;
+  font-size: 12px;
+  margin-top: 4px;
 }

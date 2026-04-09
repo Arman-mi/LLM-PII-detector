@@ -4,7 +4,14 @@
     return `[${type}_${counters[type]}]`;
   }
 
-  function applyRedactions(text, detections) {
+  function applyRedactions(text, detections, mode = "policy") {
+    if (!detections || detections.length === 0) {
+      return {
+        redactedText: text,
+        replacements: {}
+      };
+    }
+
     const counters = {};
     const replacements = {};
     let result = "";
@@ -13,14 +20,23 @@
     for (const d of detections) {
       result += text.slice(cursor, d.start);
 
-      const placeholder = makePlaceholder(d.type, counters);
-      replacements[placeholder] = {
-        original: d.text,
-        type: d.type,
-        index: counters[d.type]
-      };
+      const shouldReplace =
+        mode === "all" ||
+        d.action === "REDACT" ||
+        d.action === "BLOCK";
 
-      result += placeholder;
+      if (shouldReplace) {
+        const placeholder = makePlaceholder(d.type, counters);
+        replacements[placeholder] = {
+          original: d.text,
+          type: d.type,
+          index: counters[d.type]
+        };
+        result += placeholder;
+      } else {
+        result += d.text;
+      }
+
       cursor = d.end;
     }
 
@@ -33,10 +49,14 @@
   }
 
   function restoreRedactions(text, replacements) {
+    if (!replacements) return text;
+
     let restored = text;
+
     for (const [placeholder, data] of Object.entries(replacements)) {
       restored = restored.split(placeholder).join(data.original);
     }
+
     return restored;
   }
 

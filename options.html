@@ -6,30 +6,108 @@
     <style>
       body {
         font-family: Arial, sans-serif;
-        max-width: 700px;
+        max-width: 800px;
         margin: 40px auto;
         padding: 20px;
       }
+
       textarea {
         width: 100%;
-        height: 180px;
+        height: 160px;
       }
+
       button {
-        margin-top: 12px;
+        margin-top: 16px;
         padding: 10px 14px;
       }
+
       .status {
         margin-top: 10px;
+      }
+
+      .section {
+        margin-top: 28px;
+        padding-top: 20px;
+        border-top: 1px solid #ddd;
+      }
+
+      .policy-grid {
+        display: grid;
+        grid-template-columns: 220px 180px;
+        gap: 12px;
+        align-items: center;
+      }
+
+      select {
+        padding: 6px;
       }
     </style>
   </head>
   <body>
     <h1>Mini Tecto Options</h1>
-    <p>Enter one custom sensitive term per line.</p>
-    <textarea id="customTerms"></textarea>
-    <br />
+
+    <div class="section">
+      <h2>Custom Sensitive Terms</h2>
+      <p>Enter one custom sensitive term per line.</p>
+      <textarea id="customTerms"></textarea>
+    </div>
+
+    <div class="section">
+      <h2>Policy Rules</h2>
+      <div class="policy-grid">
+        <label for="EMAIL">EMAIL</label>
+        <select id="EMAIL">
+          <option>ALLOW</option>
+          <option>WARN</option>
+          <option>REDACT</option>
+          <option>BLOCK</option>
+        </select>
+
+        <label for="PHONE">PHONE</label>
+        <select id="PHONE">
+          <option>ALLOW</option>
+          <option>WARN</option>
+          <option>REDACT</option>
+          <option>BLOCK</option>
+        </select>
+
+        <label for="SSN">SSN</label>
+        <select id="SSN">
+          <option>ALLOW</option>
+          <option>WARN</option>
+          <option>REDACT</option>
+          <option>BLOCK</option>
+        </select>
+
+        <label for="CREDIT_CARD">CREDIT_CARD</label>
+        <select id="CREDIT_CARD">
+          <option>ALLOW</option>
+          <option>WARN</option>
+          <option>REDACT</option>
+          <option>BLOCK</option>
+        </select>
+
+        <label for="IP_ADDRESS">IP_ADDRESS</label>
+        <select id="IP_ADDRESS">
+          <option>ALLOW</option>
+          <option>WARN</option>
+          <option>REDACT</option>
+          <option>BLOCK</option>
+        </select>
+
+        <label for="CUSTOM_TERM">CUSTOM_TERM</label>
+        <select id="CUSTOM_TERM">
+          <option>ALLOW</option>
+          <option>WARN</option>
+          <option>REDACT</option>
+          <option>BLOCK</option>
+        </select>
+      </div>
+    </div>
+
     <button id="saveBtn">Save</button>
     <div class="status" id="status"></div>
+
     <script src="options.js"></script>
   </body>
 </html>

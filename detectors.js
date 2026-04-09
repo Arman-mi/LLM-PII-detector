@@ -19,26 +19,131 @@
     return digits.length >= 13 && digits.length <= 19 && sum % 10 === 0;
   }
 
+  function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function makeDetection(match, type, reason) {
+    return {
+      id: crypto.randomUUID(),
+      type,
+      text: match.value,
+      start: match.start,
+      end: match.end,
+      reason
+    };
+  }
+
   function findMatches(text, regex, type, reason, validator = null) {
     const matches = [];
     for (const match of text.matchAll(regex)) {
       const value = match[0];
+      const start = match.index;
+      const end = start + value.length;
+
       if (validator && !validator(value)) continue;
 
-      matches.push({
-        id: crypto.randomUUID(),
-        type,
-        text: value,
-        start: match.index,
-        end: match.index + value.length,
-        reason
-      });
+      matches.push(
+        makeDetection(
+          { value, start, end },
+          type,
+          reason
+        )
+      );
     }
     return matches;
   }
 
+  function detectPotentialIds(text) {
+    const matches = [];
+
+    const patterns = [
+      /\b[A-Z]{2,}-\d{3,}[A-Z0-9-]*\b/g,
+      /\b(?:ID|EMP|CASE|CUST|ACC|ACCT|USER|CLIENT)[-_:]?[A-Z0-9]{3,}\b/gi,
+      /\b[A-Z0-9]*\d[A-Z0-9]*[A-Z][A-Z0-9]*\b/g,
+      /\b[A-Z][A-Z0-9]{5,}\b/g,
+      /\b\d{7,}\b/g
+    ];
+
+    for (const regex of patterns) {
+      for (const match of text.matchAll(regex)) {
+        const value = match[0];
+        const start = match.index;
+        const end = start + value.length;
+
+        if (/^\d+$/.test(value)) {
+          if (value.length < 7) continue;
+          if (luhnCheck(value)) continue;
+        }
+
+        if (/^\d{3}-\d{2}-\d{4}$/.test(value)) continue;
+        if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(value)) continue;
+        if (/@/.test(value)) continue;
+
+        matches.push(
+          makeDetection(
+            { value, start, end },
+            "POTENTIAL_ID",
+            "Matched ID-like heuristic pattern"
+          )
+        );
+      }
+    }
+
+    return matches;
+  }
+
+  function dedupeAndResolveOverlaps(detections) {
+    const priority = {
+      SSN: 100,
+      CREDIT_CARD: 95,
+      EMAIL: 90,
+      PHONE: 85,
+      IP_ADDRESS: 80,
+      CUSTOM_TERM: 75,
+      POTENTIAL_ID: 60
+    };
+
+    const sorted = [...detections].sort((a, b) => {
+      if (a.start !== b.start) return a.start - b.start;
+      const aLen = a.end - a.start;
+      const bLen = b.end - b.start;
+      if (aLen !== bLen) return bLen - aLen;
+      return (priority[b.type] || 0) - (priority[a.type] || 0);
+    });
+
+    const result = [];
+
+    for (const det of sorted) {
+      const overlaps = result.find(
+        (r) => !(det.end <= r.start || det.start >= r.end)
+      );
+
+      if (!overlaps) {
+        result.push(det);
+        continue;
+      }
+
+      const currentPriority = priority[det.type] || 0;
+      const existingPriority = priority[overlaps.type] || 0;
+      const currentLen = det.end - det.start;
+      const existingLen = overlaps.end - overlaps.start;
+
+      const shouldReplace =
+        currentPriority > existingPriority ||
+        (currentPriority === existingPriority && currentLen > existingLen);
+
+      if (shouldReplace) {
+        const idx = result.indexOf(overlaps);
+        result[idx] = det;
+      }
+    }
+
+    return result.sort((a, b) => a.start - b.start);
+  }
+
   function detectPII(text, customTerms = []) {
-    const detections = [];
+    let detections = [];
 
     detections.push(
       ...findMatches(
@@ -88,8 +193,8 @@
 
     for (const term of customTerms) {
       if (!term || !term.trim()) continue;
-      const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const regex = new RegExp(escaped, "gi");
+      const regex = new RegExp(escapeRegex(term.trim()), "gi");
+
       detections.push(
         ...findMatches(
           text,
@@ -100,8 +205,9 @@
       );
     }
 
-    detections.sort((a, b) => a.start - b.start);
-    return detections;
+    detections.push(...detectPotentialIds(text));
+
+    return dedupeAndResolveOverlaps(detections);
   }
 
   window.MiniTectoDetectors = {

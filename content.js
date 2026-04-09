@@ -2,12 +2,12 @@
   let panel = null;
   let currentInput = null;
   let debounceTimer = null;
+  let lastScan = null;
+  let lastOriginalText = null;
+  let listenersAttached = false;
 
   function getChatInput() {
-    const candidates = [
-      'textarea',
-      '[contenteditable="true"]'
-    ];
+    const candidates = ["textarea", '[contenteditable="true"]'];
 
     for (const selector of candidates) {
       const elements = document.querySelectorAll(selector);
@@ -22,10 +22,46 @@
     return null;
   }
 
+  function getSendButtons() {
+    const buttons = Array.from(document.querySelectorAll("button"));
+    return buttons.filter((btn) => {
+      const label =
+        (btn.innerText || "").toLowerCase() +
+        " " +
+        (btn.getAttribute("aria-label") || "").toLowerCase();
+
+      return (
+        label.includes("send") ||
+        label.includes("submit") ||
+        btn.querySelector('svg')
+      );
+    });
+  }
+
   function getInputText(el) {
     if (!el) return "";
     if (el.tagName === "TEXTAREA") return el.value || "";
     return el.innerText || el.textContent || "";
+  }
+
+  function setInputText(el, value) {
+    if (!el) return;
+
+    if (el.tagName === "TEXTAREA") {
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      return;
+    }
+
+    el.innerText = value;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  function escapeHtml(str) {
+    return str
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;");
   }
 
   function createPanel() {
@@ -36,53 +72,98 @@
     div.id = "mini-tecto-panel";
     div.innerHTML = `
       <div class="mini-tecto-header">Mini Tecto</div>
-      <div class="mini-tecto-body">No scan yet.</div>
+      <div class="mini-tecto-status mini-tecto-status-neutral">No scan yet.</div>
+      <div class="mini-tecto-body"></div>
       <div class="mini-tecto-actions">
-        <button id="mini-tecto-redact-btn">Redact All</button>
+        <button id="mini-tecto-redact-btn">Redact</button>
+        <button id="mini-tecto-restore-btn">Restore</button>
         <button id="mini-tecto-refresh-btn">Rescan</button>
       </div>
     `;
     document.body.appendChild(div);
 
     div.querySelector("#mini-tecto-refresh-btn").addEventListener("click", runScan);
-    div.querySelector("#mini-tecto-redact-btn").addEventListener("click", redactAll);
+    div.querySelector("#mini-tecto-redact-btn").addEventListener("click", redactByPolicy);
+    div.querySelector("#mini-tecto-restore-btn").addEventListener("click", restoreOriginal);
 
     return div;
   }
 
-  async function getCustomTerms() {
+  function updateStatus(text, cls) {
+    panel = createPanel();
+    const status = panel.querySelector(".mini-tecto-status");
+    status.className = `mini-tecto-status ${cls}`;
+    status.textContent = text;
+  }
+
+  async function getSettings() {
     return new Promise((resolve) => {
-      chrome.storage.local.get(["customTerms"], (result) => {
-        resolve(result.customTerms || []);
+      chrome.storage.local.get(["customTerms", "policyConfig"], (result) => {
+        resolve({
+          customTerms: result.customTerms || [],
+          policyConfig: result.policyConfig || {}
+        });
       });
     });
   }
 
-  async function runScan() {
-    if (!currentInput) return;
+  async function appendAuditLog(event) {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(["auditLog"], (result) => {
+        const current = result.auditLog || [];
+        current.push({
+          ...event,
+          ts: new Date().toISOString()
+        });
 
-    const text = getInputText(currentInput);
-    const customTerms = await getCustomTerms();
-    const detections = window.MiniTectoDetectors.detectPII(text, customTerms);
+        chrome.storage.local.set(
+          { auditLog: current.slice(-200) },
+          () => resolve()
+        );
+      });
+    });
+  }
 
+  function renderResult(scanResult) {
     panel = createPanel();
     const body = panel.querySelector(".mini-tecto-body");
 
-    if (detections.length === 0) {
-      body.innerHTML = `<div>No sensitive items found.</div>`;
+    if (!scanResult || scanResult.detections.length === 0) {
+      updateStatus("No sensitive items found.", "mini-tecto-status-safe");
+      body.innerHTML = `<div>No issues detected.</div>`;
       return;
     }
 
+    if (scanResult.finalAction === "BLOCK") {
+      updateStatus(
+        `${scanResult.detections.length} sensitive item(s): submission blocked`,
+        "mini-tecto-status-block"
+      );
+    } else if (scanResult.finalAction === "REDACT") {
+      updateStatus(
+        `${scanResult.detections.length} sensitive item(s): redaction recommended`,
+        "mini-tecto-status-warn"
+      );
+    } else {
+      updateStatus(
+        `${scanResult.detections.length} sensitive item(s): warning`,
+        "mini-tecto-status-warn"
+      );
+    }
+
     body.innerHTML = `
-      <div><strong>${detections.length}</strong> sensitive item(s) found:</div>
       <ul class="mini-tecto-list">
-        ${detections
-          .slice(0, 8)
+        ${scanResult.detections
+          .slice(0, 10)
           .map(
             (d) => `
               <li>
-                <span class="mini-tecto-type">${d.type}</span>
-                <span class="mini-tecto-text">${escapeHtml(d.text)}</span>
+                <div>
+                  <span class="mini-tecto-type">${d.type}</span>
+                  <span class="mini-tecto-action">${d.action}</span>
+                </div>
+                <div class="mini-tecto-text">${escapeHtml(d.text)}</div>
+                <div class="mini-tecto-reason">${escapeHtml(d.reason)}</div>
               </li>
             `
           )
@@ -91,7 +172,22 @@
     `;
   }
 
-  function redactText(text, detections) {
+  async function runScan() {
+    if (!currentInput) return;
+
+    const text = getInputText(currentInput);
+    const { customTerms, policyConfig } = await getSettings();
+    const detections = window.MiniTectoDetectors.detectPII(text, customTerms);
+    const scanResult = window.MiniTectoPolicy.evaluateDetections(
+      detections,
+      policyConfig
+    );
+
+    lastScan = scanResult;
+    renderResult(scanResult);
+  }
+
+  function redactText(text, detections, mode = "policy") {
     if (!detections.length) return text;
 
     let result = "";
@@ -99,7 +195,13 @@
 
     for (const d of detections) {
       result += text.slice(cursor, d.start);
-      result += `[${d.type}]`;
+
+      const shouldReplace =
+        mode === "all" ||
+        d.action === "REDACT" ||
+        d.action === "BLOCK";
+
+      result += shouldReplace ? `[${d.type}]` : d.text;
       cursor = d.end;
     }
 
@@ -107,33 +209,108 @@
     return result;
   }
 
-  async function redactAll() {
-    if (!currentInput) return;
+  async function redactByPolicy() {
+    if (!currentInput || !lastScan) return;
 
     const text = getInputText(currentInput);
-    const customTerms = await getCustomTerms();
-    const detections = window.MiniTectoDetectors.detectPII(text, customTerms);
-
-    if (!detections.length) return;
-
-    const redacted = redactText(text, detections);
-
-    if (currentInput.tagName === "TEXTAREA") {
-      currentInput.value = redacted;
-      currentInput.dispatchEvent(new Event("input", { bubbles: true }));
-    } else {
-      currentInput.innerText = redacted;
-      currentInput.dispatchEvent(new Event("input", { bubbles: true }));
+    if (lastOriginalText === null) {
+      lastOriginalText = text;
     }
+
+    const redacted = redactText(text, lastScan.detections, "policy");
+    setInputText(currentInput, redacted);
+
+    await appendAuditLog({
+      event: "redact",
+      count: lastScan.detections.length,
+      finalAction: lastScan.finalAction
+    });
 
     runScan();
   }
 
-  function escapeHtml(str) {
-    return str
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;");
+  async function restoreOriginal() {
+    if (!currentInput || lastOriginalText === null) return;
+
+    setInputText(currentInput, lastOriginalText);
+
+    await appendAuditLog({
+      event: "restore"
+    });
+
+    lastOriginalText = null;
+    runScan();
+  }
+
+  async function enforceBeforeSend(e) {
+    if (!currentInput) return;
+
+    const text = getInputText(currentInput);
+    const { customTerms, policyConfig } = await getSettings();
+    const detections = window.MiniTectoDetectors.detectPII(text, customTerms);
+    const scanResult = window.MiniTectoPolicy.evaluateDetections(
+      detections,
+      policyConfig
+    );
+
+    lastScan = scanResult;
+    renderResult(scanResult);
+
+    if (scanResult.finalAction === "BLOCK") {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation?.();
+
+      await appendAuditLog({
+        event: "blocked_submission",
+        count: scanResult.detections.length
+      });
+
+      updateStatus(
+        "Blocked: remove or redact high-severity items before sending.",
+        "mini-tecto-status-block"
+      );
+
+      return false;
+    }
+
+    return true;
+  }
+
+  function attachSendInterceptors() {
+    if (listenersAttached) return;
+    listenersAttached = true;
+
+    document.addEventListener(
+      "keydown",
+      async (e) => {
+        const input = getChatInput();
+        if (!input) return;
+
+        const isCurrent =
+          document.activeElement === input || input.contains(document.activeElement);
+
+        if (isCurrent && e.key === "Enter" && !e.shiftKey) {
+          const ok = await enforceBeforeSend(e);
+          if (!ok) return false;
+        }
+      },
+      true
+    );
+
+    document.addEventListener(
+      "click",
+      async (e) => {
+        const target = e.target.closest("button");
+        if (!target) return;
+
+        const sendButtons = getSendButtons();
+        if (sendButtons.includes(target)) {
+          await enforceBeforeSend(e);
+        }
+      },
+      true
+    );
   }
 
   function attachListener(input) {
@@ -150,6 +327,7 @@
 
   function init() {
     panel = createPanel();
+    attachSendInterceptors();
 
     const observer = new MutationObserver(() => {
       const input = getChatInput();

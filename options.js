@@ -2,10 +2,35 @@ const textarea = document.getElementById("customTerms");
 const saveBtn = document.getElementById("saveBtn");
 const status = document.getElementById("status");
 
+const policyKeys = [
+  "EMAIL",
+  "PHONE",
+  "SSN",
+  "CREDIT_CARD",
+  "IP_ADDRESS",
+  "CUSTOM_TERM"
+];
+
+const defaultPolicy = {
+  EMAIL: "WARN",
+  PHONE: "WARN",
+  SSN: "BLOCK",
+  CREDIT_CARD: "BLOCK",
+  IP_ADDRESS: "WARN",
+  CUSTOM_TERM: "REDACT"
+};
+
 function loadOptions() {
-  chrome.storage.local.get(["customTerms"], (result) => {
+  chrome.storage.local.get(["customTerms", "policyConfig"], (result) => {
     const terms = result.customTerms || [];
+    const policyConfig = { ...defaultPolicy, ...(result.policyConfig || {}) };
+
     textarea.value = terms.join("\n");
+
+    for (const key of policyKeys) {
+      const el = document.getElementById(key);
+      if (el) el.value = policyConfig[key];
+    }
   });
 }
 
@@ -15,7 +40,13 @@ function saveOptions() {
     .map((s) => s.trim())
     .filter(Boolean);
 
-  chrome.storage.local.set({ customTerms: terms }, () => {
+  const policyConfig = {};
+  for (const key of policyKeys) {
+    const el = document.getElementById(key);
+    if (el) policyConfig[key] = el.value;
+  }
+
+  chrome.storage.local.set({ customTerms: terms, policyConfig }, () => {
     status.textContent = "Saved.";
     setTimeout(() => {
       status.textContent = "";
