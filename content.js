@@ -3,7 +3,7 @@
   let currentInput = null;
   let debounceTimer = null;
   let lastScan = null;
-  let lastOriginalText = null;
+  let lastRedactionSession = null;
   let listenersAttached = false;
 
   function getChatInput() {
@@ -25,16 +25,9 @@
   function getSendButtons() {
     const buttons = Array.from(document.querySelectorAll("button"));
     return buttons.filter((btn) => {
-      const label =
-        (btn.innerText || "").toLowerCase() +
-        " " +
-        (btn.getAttribute("aria-label") || "").toLowerCase();
-
-      return (
-        label.includes("send") ||
-        label.includes("submit") ||
-        btn.querySelector('svg')
-      );
+      const text = (btn.innerText || "").toLowerCase();
+      const aria = (btn.getAttribute("aria-label") || "").toLowerCase();
+      return text.includes("send") || aria.includes("send");
     });
   }
 
@@ -44,18 +37,20 @@
     return el.innerText || el.textContent || "";
   }
 
-  function setInputText(el, value) {
-    if (!el) return;
+function setInputText(el, value) {
+  if (!el) return;
 
-    if (el.tagName === "TEXTAREA") {
-      el.value = value;
-      el.dispatchEvent(new Event("input", { bubbles: true }));
-      return;
-    }
-
-    el.innerText = value;
+  if (el.tagName === "TEXTAREA") {
+    el.value = value;
     el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+    return;
   }
+
+  el.textContent = value;
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  el.dispatchEvent(new Event("change", { bubbles: true }));
+}
 
   function escapeHtml(str) {
     return str
@@ -173,77 +168,88 @@
   }
 
   async function runScan() {
-    if (!currentInput) return;
-
-    const text = getInputText(currentInput);
-    const { customTerms, policyConfig } = await getSettings();
-    const detections = window.MiniTectoDetectors.detectPII(text, customTerms);
-    const scanResult = window.MiniTectoPolicy.evaluateDetections(
-      detections,
-      policyConfig
-    );
-
-    lastScan = scanResult;
-    renderResult(scanResult);
+  const latestInput = getChatInput();
+  if (latestInput && latestInput !== currentInput) {
+    attachListener(latestInput);
   }
 
-  function redactText(text, detections, mode = "policy") {
-    if (!detections.length) return text;
+  if (!latestInput && !currentInput) return;
 
-    let result = "";
-    let cursor = 0;
+  currentInput = latestInput || currentInput;
 
-    for (const d of detections) {
-      result += text.slice(cursor, d.start);
+  const text = getInputText(currentInput);
+  const { customTerms, policyConfig } = await getSettings();
+  const detections = window.MiniTectoDetectors.detectPII(text, customTerms);
+  const scanResult = window.MiniTectoPolicy.evaluateDetections(
+    detections,
+    policyConfig
+  );
 
-      const shouldReplace =
-        mode === "all" ||
-        d.action === "REDACT" ||
-        d.action === "BLOCK";
-
-      result += shouldReplace ? `[${d.type}]` : d.text;
-      cursor = d.end;
-    }
-
-    result += text.slice(cursor);
-    return result;
-  }
-
+  lastScan = scanResult;
+  renderResult(scanResult);
+}
   async function redactByPolicy() {
-    if (!currentInput || !lastScan) return;
-
-    const text = getInputText(currentInput);
-    if (lastOriginalText === null) {
-      lastOriginalText = text;
-    }
-
-    const redacted = redactText(text, lastScan.detections, "policy");
-    setInputText(currentInput, redacted);
-
-    await appendAuditLog({
-      event: "redact",
-      count: lastScan.detections.length,
-      finalAction: lastScan.finalAction
-    });
-
-    runScan();
+  const latestInput = getChatInput();
+  if (latestInput) {
+    currentInput = latestInput;
   }
 
-  async function restoreOriginal() {
-    if (!currentInput || lastOriginalText === null) return;
+  if (!currentInput) return;
 
-    setInputText(currentInput, lastOriginalText);
+  await runScan();
+  if (!lastScan) return;
 
-    await appendAuditLog({
-      event: "restore"
-    });
+  const currentText = getInputText(currentInput);
 
-    lastOriginalText = null;
-    runScan();
+  const result = window.MiniTectoRedaction.applyRedactions(
+    currentText,
+    lastScan.detections,
+    "policy"
+  );
+
+  lastRedactionSession = {
+    replacements: result.replacements
+  };
+
+  setInputText(currentInput, result.redactedText);
+
+  await appendAuditLog({
+    event: "redact",
+    count: lastScan.detections.length,
+    finalAction: lastScan.finalAction,
+    placeholders: Object.keys(result.replacements).length
+  });
+
+  setTimeout(runScan, 50);
+}
+
+async function restoreOriginal() {
+  const latestInput = getChatInput();
+  if (latestInput) {
+    currentInput = latestInput;
   }
+
+  if (!currentInput || !lastRedactionSession) return;
+
+  const currentText = getInputText(currentInput);
+  const restored = window.MiniTectoRedaction.restoreRedactions(
+    currentText,
+    lastRedactionSession.replacements
+  );
+
+  setInputText(currentInput, restored);
+
+  await appendAuditLog({
+    event: "restore",
+    placeholders: Object.keys(lastRedactionSession.replacements).length
+  });
+
+  lastRedactionSession = null;
+  setTimeout(runScan, 50);
+}
 
   async function enforceBeforeSend(e) {
-    if (!currentInput) return;
+    if (!currentInput) return true;
 
     const text = getInputText(currentInput);
     const { customTerms, policyConfig } = await getSettings();
@@ -313,17 +319,26 @@
     );
   }
 
-  function attachListener(input) {
-    if (!input || input === currentInput) return;
+function attachListener(input) {
+  if (!input) return;
+
+  if (input !== currentInput) {
     currentInput = input;
-
-    input.addEventListener("input", () => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(runScan, 250);
-    });
-
-    runScan();
   }
+
+  if (input.dataset.miniTectoBound === "true") {
+    return;
+  }
+
+  input.dataset.miniTectoBound = "true";
+
+  input.addEventListener("input", () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(runScan, 250);
+  });
+
+  runScan();
+}
 
   function init() {
     panel = createPanel();
