@@ -5,7 +5,8 @@
     SSN: "BLOCK",
     CREDIT_CARD: "BLOCK",
     IP_ADDRESS: "WARN",
-    CUSTOM_TERM: "REDACT"
+    CUSTOM_TERM: "REDACT",
+    POTENTIAL_ID: "WARN"
   };
 
   function getSeverity(type) {
@@ -16,6 +17,7 @@
       case "EMAIL":
       case "PHONE":
       case "CUSTOM_TERM":
+      case "POTENTIAL_ID":
         return "medium";
       case "IP_ADDRESS":
       default:

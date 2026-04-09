@@ -8,16 +8,18 @@ const policyKeys = [
   "SSN",
   "CREDIT_CARD",
   "IP_ADDRESS",
-  "CUSTOM_TERM"
+  "CUSTOM_TERM",
+  "POTENTIAL_ID"
 ];
 
 const defaultPolicy = {
-  EMAIL: "WARN",
+  EMAIL: "REDACT",
   PHONE: "WARN",
   SSN: "BLOCK",
   CREDIT_CARD: "BLOCK",
   IP_ADDRESS: "WARN",
-  CUSTOM_TERM: "REDACT"
+  CUSTOM_TERM: "REDACT",
+  POTENTIAL_ID: "WARN"
 };
 
 function loadOptions() {
