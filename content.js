@@ -5,6 +5,7 @@
   let lastScan = null;
   let lastRedactionSession = null;
   let listenersAttached = false;
+  let rehydrateObserver = null;
 
   function getChatInput() {
     const candidates = ["textarea", '[contenteditable="true"]'];
@@ -37,20 +38,20 @@
     return el.innerText || el.textContent || "";
   }
 
-function setInputText(el, value) {
-  if (!el) return;
+  function setInputText(el, value) {
+    if (!el) return;
 
-  if (el.tagName === "TEXTAREA") {
-    el.value = value;
+    if (el.tagName === "TEXTAREA") {
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+      return;
+    }
+
+    el.textContent = value;
     el.dispatchEvent(new Event("input", { bubbles: true }));
     el.dispatchEvent(new Event("change", { bubbles: true }));
-    return;
   }
-
-  el.textContent = value;
-  el.dispatchEvent(new Event("input", { bubbles: true }));
-  el.dispatchEvent(new Event("change", { bubbles: true }));
-}
 
   function escapeHtml(str) {
     return str
@@ -167,86 +168,212 @@ function setInputText(el, value) {
     `;
   }
 
+  function hasActiveReplacements() {
+    return !!(
+      lastRedactionSession &&
+      lastRedactionSession.replacements &&
+      Object.keys(lastRedactionSession.replacements).length > 0
+    );
+  }
+
+  function rehydrateString(text, replacements) {
+    if (!text || !replacements) return text;
+
+    let result = text;
+    for (const [placeholder, data] of Object.entries(replacements)) {
+      result = result.split(placeholder).join(data.original);
+    }
+    return result;
+  }
+
+  function shouldSkipNode(node) {
+    if (!node || !node.parentElement) return true;
+
+    const parent = node.parentElement;
+
+    if (parent.closest("#mini-tecto-panel")) return true;
+    if (parent.closest("textarea")) return true;
+    if (parent.closest('[contenteditable="true"]')) return true;
+    if (parent.closest("script, style, noscript")) return true;
+
+    return false;
+  }
+
+  function rehydrateTextNodes(root) {
+    if (!hasActiveReplacements() || !root) return 0;
+
+    const replacements = lastRedactionSession.replacements;
+    const walker = document.createTreeWalker(
+      root,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode(node) {
+          if (!node.nodeValue || !node.nodeValue.trim()) {
+            return NodeFilter.FILTER_REJECT;
+          }
+
+          if (shouldSkipNode(node)) {
+            return NodeFilter.FILTER_REJECT;
+          }
+
+          const containsPlaceholder = Object.keys(replacements).some((ph) =>
+            node.nodeValue.includes(ph)
+          );
+
+          return containsPlaceholder
+            ? NodeFilter.FILTER_ACCEPT
+            : NodeFilter.FILTER_REJECT;
+        }
+      }
+    );
+
+    let changedCount = 0;
+    const nodesToUpdate = [];
+
+    while (walker.nextNode()) {
+      nodesToUpdate.push(walker.currentNode);
+    }
+
+    for (const textNode of nodesToUpdate) {
+      const original = textNode.nodeValue;
+      const rehydrated = rehydrateString(original, replacements);
+
+      if (rehydrated !== original) {
+        textNode.nodeValue = rehydrated;
+        changedCount++;
+      }
+    }
+
+    return changedCount;
+  }
+
+  async function rehydrateVisibleConversation() {
+    if (!hasActiveReplacements()) return;
+
+    const changed = rehydrateTextNodes(document.body);
+
+    if (changed > 0) {
+      await appendAuditLog({
+        event: "rehydrate_visible_text",
+        changedNodes: changed,
+        placeholders: Object.keys(lastRedactionSession.replacements).length
+      });
+    }
+  }
+
+  function startRehydrateObserver() {
+    if (rehydrateObserver) return;
+
+    rehydrateObserver = new MutationObserver(() => {
+      if (!hasActiveReplacements()) return;
+
+      clearTimeout(window.__miniTectoRehydrateTimer);
+      window.__miniTectoRehydrateTimer = setTimeout(() => {
+        rehydrateVisibleConversation();
+      }, 150);
+    });
+
+    rehydrateObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    });
+  }
+
   async function runScan() {
-  const latestInput = getChatInput();
-  if (latestInput && latestInput !== currentInput) {
-    attachListener(latestInput);
+    const latestInput = getChatInput();
+    if (latestInput && latestInput !== currentInput) {
+      attachListener(latestInput);
+    }
+
+    if (!latestInput && !currentInput) return;
+
+    currentInput = latestInput || currentInput;
+
+    const text = getInputText(currentInput);
+    const { customTerms, policyConfig } = await getSettings();
+    const detections = window.MiniTectoDetectors.detectPII(text, customTerms);
+    const scanResult = window.MiniTectoPolicy.evaluateDetections(
+      detections,
+      policyConfig
+    );
+
+    lastScan = scanResult;
+    renderResult(scanResult);
   }
 
-  if (!latestInput && !currentInput) return;
-
-  currentInput = latestInput || currentInput;
-
-  const text = getInputText(currentInput);
-  const { customTerms, policyConfig } = await getSettings();
-  const detections = window.MiniTectoDetectors.detectPII(text, customTerms);
-  const scanResult = window.MiniTectoPolicy.evaluateDetections(
-    detections,
-    policyConfig
-  );
-
-  lastScan = scanResult;
-  renderResult(scanResult);
-}
   async function redactByPolicy() {
-  const latestInput = getChatInput();
-  if (latestInput) {
-    currentInput = latestInput;
+    const latestInput = getChatInput();
+    if (latestInput) {
+      currentInput = latestInput;
+    }
+
+    if (!currentInput) return;
+
+    await runScan();
+    if (!lastScan) return;
+
+    const currentText = getInputText(currentInput);
+    console.group("🛡️ Mini Tecto Redaction");
+  console.log("Original Input:", currentText);
+  console.log("Detections:", lastScan.detections);
+
+
+    const result = window.MiniTectoRedaction.applyRedactions(
+      currentText,
+      lastScan.detections,
+      "policy"
+    );
+    console.log("Replacement Map:", result.replacements);
+  console.log("Redacted Output:", result.redactedText);
+
+
+    lastRedactionSession = {
+      replacements: result.replacements,
+      createdAt: Date.now()
+    };
+
+    setInputText(currentInput, result.redactedText);
+
+    await appendAuditLog({
+      event: "redact",
+      count: lastScan.detections.length,
+      finalAction: lastScan.finalAction,
+      placeholders: Object.keys(result.replacements).length
+    });
+
+    setTimeout(async () => {
+      await runScan();
+      await rehydrateVisibleConversation();
+    }, 50);
   }
 
-  if (!currentInput) return;
+  async function restoreOriginal() {
+    const latestInput = getChatInput();
+    if (latestInput) {
+      currentInput = latestInput;
+    }
 
-  await runScan();
-  if (!lastScan) return;
+    if (!currentInput || !lastRedactionSession) return;
 
-  const currentText = getInputText(currentInput);
+    const currentText = getInputText(currentInput);
+    const restored = window.MiniTectoRedaction.restoreRedactions(
+      currentText,
+      lastRedactionSession.replacements
+    );
 
-  const result = window.MiniTectoRedaction.applyRedactions(
-    currentText,
-    lastScan.detections,
-    "policy"
-  );
+    setInputText(currentInput, restored);
 
-  lastRedactionSession = {
-    replacements: result.replacements
-  };
+    const changed = rehydrateTextNodes(document.body);
 
-  setInputText(currentInput, result.redactedText);
+    await appendAuditLog({
+      event: "restore",
+      placeholders: Object.keys(lastRedactionSession.replacements).length,
+      changedNodes: changed
+    });
 
-  await appendAuditLog({
-    event: "redact",
-    count: lastScan.detections.length,
-    finalAction: lastScan.finalAction,
-    placeholders: Object.keys(result.replacements).length
-  });
-
-  setTimeout(runScan, 50);
-}
-
-async function restoreOriginal() {
-  const latestInput = getChatInput();
-  if (latestInput) {
-    currentInput = latestInput;
+    setTimeout(runScan, 50);
   }
-
-  if (!currentInput || !lastRedactionSession) return;
-
-  const currentText = getInputText(currentInput);
-  const restored = window.MiniTectoRedaction.restoreRedactions(
-    currentText,
-    lastRedactionSession.replacements
-  );
-
-  setInputText(currentInput, restored);
-
-  await appendAuditLog({
-    event: "restore",
-    placeholders: Object.keys(lastRedactionSession.replacements).length
-  });
-
-  lastRedactionSession = null;
-  setTimeout(runScan, 50);
-}
 
   async function enforceBeforeSend(e) {
     if (!currentInput) return true;
@@ -319,30 +446,31 @@ async function restoreOriginal() {
     );
   }
 
-function attachListener(input) {
-  if (!input) return;
+  function attachListener(input) {
+    if (!input) return;
 
-  if (input !== currentInput) {
-    currentInput = input;
+    if (input !== currentInput) {
+      currentInput = input;
+    }
+
+    if (input.dataset.miniTectoBound === "true") {
+      return;
+    }
+
+    input.dataset.miniTectoBound = "true";
+
+    input.addEventListener("input", () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(runScan, 250);
+    });
+
+    runScan();
   }
-
-  if (input.dataset.miniTectoBound === "true") {
-    return;
-  }
-
-  input.dataset.miniTectoBound = "true";
-
-  input.addEventListener("input", () => {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(runScan, 250);
-  });
-
-  runScan();
-}
 
   function init() {
     panel = createPanel();
     attachSendInterceptors();
+    startRehydrateObserver();
 
     const observer = new MutationObserver(() => {
       const input = getChatInput();

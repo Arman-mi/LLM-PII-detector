@@ -14,12 +14,12 @@ const policyKeys = [
 
 const defaultPolicy = {
   EMAIL: "REDACT",
-  PHONE: "WARN",
+  PHONE: "REDACT",
   SSN: "BLOCK",
   CREDIT_CARD: "BLOCK",
-  IP_ADDRESS: "WARN",
+  IP_ADDRESS: "REDACT",
   CUSTOM_TERM: "REDACT",
-  POTENTIAL_ID: "WARN"
+  POTENTIAL_ID: "REDACT"
 };
 
 function loadOptions() {
