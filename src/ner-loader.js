@@ -1,37 +1,29 @@
-let nerClassifier = null;
+import { pipeline } from "@huggingface/transformers";
+
+let nerPipeline = null;
 let nerLoadingPromise = null;
 
 export async function loadNER() {
-  if (nerClassifier) return nerClassifier;
+  if (nerPipeline) return nerPipeline;
   if (nerLoadingPromise) return nerLoadingPromise;
 
-  nerLoadingPromise = (async () => {
-    const { pipeline } = await import("@huggingface/transformers");
+  nerLoadingPromise = pipeline(
+    "token-classification",
+    "onnx-community/TinyBERT-finetuned-NER-ONNX",
+    {
+      device: "wasm",
+      dtype: "q8"
+    }
+  );
 
-    nerClassifier = await pipeline(
-      "token-classification",
-      "onnx-community/TinyBERT-finetuned-NER-ONNX",
-      {
-        device: "wasm",
-      }
-    );
-
-    return nerClassifier;
-  })();
-
-  return nerLoadingPromise;
-}
-
-export async function detectNER(text) {
-  const classifier = await loadNER();
-  const output = await classifier(text);
-  return output;
+  nerPipeline = await nerLoadingPromise;
+  return nerPipeline;
 }
 
 export function normalizeNERResults(results) {
-  return results
+  const normalized = results
     .map((r) => {
-      const label = (r.entity_group || r.entity || "").toUpperCase();
+      const label = String(r.entity_group || r.entity || "").toUpperCase();
 
       let type = null;
       if (label.includes("PER")) type = "PERSON";
@@ -51,4 +43,24 @@ export function normalizeNERResults(results) {
     })
     .filter(Boolean)
     .filter((x) => typeof x.start === "number" && typeof x.end === "number");
+
+  console.group("🧠 Mini Tecto NER");
+  console.log("Raw NER output:", results);
+  console.log("Normalized NER detections:", normalized);
+  console.groupEnd();
+
+  return normalized;
+}
+
+export async function detectNER(text) {
+  if (!text || !text.trim()) return [];
+
+  const ner = await loadNER();
+  console.group("🧠 Mini Tecto NER");
+  console.log("Input to NER:", text);
+  const raw = await ner(text);
+  console.log("Raw pipeline output:", raw);
+  console.groupEnd();
+
+  return normalizeNERResults(raw);
 }

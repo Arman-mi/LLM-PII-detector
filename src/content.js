@@ -1,3 +1,6 @@
+import { detectAllPII } from "./detectors.js";
+import { evaluateDetections } from "./policy.js";
+import { applyRedactions, restoreRedactions } from "./redaction.js";
 (function () {
   let panel = null;
   let currentInput = null;
