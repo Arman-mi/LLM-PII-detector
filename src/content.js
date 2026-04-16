@@ -1,6 +1,7 @@
 import { detectAllPII } from "./detectors.js";
 import { evaluateDetections } from "./policy.js";
 import { applyRedactions, restoreRedactions } from "./redaction.js";
+console.log("[Mini Tecto] content script loaded");
 (function () {
   let panel = null;
   let currentInput = null;
@@ -295,11 +296,8 @@ import { applyRedactions, restoreRedactions } from "./redaction.js";
 
     const text = getInputText(currentInput);
     const { customTerms, policyConfig } = await getSettings();
-    const detections = window.MiniTectoDetectors.detectPII(text, customTerms);
-    const scanResult = window.MiniTectoPolicy.evaluateDetections(
-      detections,
-      policyConfig
-    );
+    const detections = await detectAllPII(text, customTerms);
+    const scanResult = evaluateDetections(detections, policyConfig);
 
     lastScan = scanResult;
     renderResult(scanResult);
@@ -322,7 +320,7 @@ import { applyRedactions, restoreRedactions } from "./redaction.js";
   console.log("Detections:", lastScan.detections);
 
 
-    const result = window.MiniTectoRedaction.applyRedactions(
+    const result = applyRedactions(
       currentText,
       lastScan.detections,
       "policy"
@@ -360,7 +358,7 @@ import { applyRedactions, restoreRedactions } from "./redaction.js";
     if (!currentInput || !lastRedactionSession) return;
 
     const currentText = getInputText(currentInput);
-    const restored = window.MiniTectoRedaction.restoreRedactions(
+    const restored = restoreRedactions(
       currentText,
       lastRedactionSession.replacements
     );
@@ -383,11 +381,8 @@ import { applyRedactions, restoreRedactions } from "./redaction.js";
 
     const text = getInputText(currentInput);
     const { customTerms, policyConfig } = await getSettings();
-    const detections = window.MiniTectoDetectors.detectPII(text, customTerms);
-    const scanResult = window.MiniTectoPolicy.evaluateDetections(
-      detections,
-      policyConfig
-    );
+    const detections = await detectAllPII(text, customTerms);
+    const scanResult = evaluateDetections(detections, policyConfig);
 
     lastScan = scanResult;
     renderResult(scanResult);
@@ -471,7 +466,9 @@ import { applyRedactions, restoreRedactions } from "./redaction.js";
   }
 
   function init() {
+    console.log("[Mini Tecto] init running");
     panel = createPanel();
+    console.log("[Mini Tecto] panel created");
     attachSendInterceptors();
     startRehydrateObserver();
 

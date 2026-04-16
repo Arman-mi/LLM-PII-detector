@@ -3,19 +3,16 @@ import { pipeline, env } from "@huggingface/transformers";
 let nerPipeline = null;
 let nerLoadingPromise = null;
 
-// Keep model downloads allowed, but force ONNX runtime files to be local.
 env.allowRemoteModels = true;
-
-// Point ORT wasm runtime files to extension-local assets.
 env.backends.onnx = env.backends.onnx || {};
 env.backends.onnx.wasm = env.backends.onnx.wasm || {};
 env.backends.onnx.wasm.wasmPaths = chrome.runtime.getURL("ort/");
 
-export async function loadNER() {
+async function loadNER() {
   if (nerPipeline) return nerPipeline;
   if (nerLoadingPromise) return nerLoadingPromise;
 
-  console.group("🧠 Mini Tecto NER");
+  console.group("🧠 Mini Tecto Offscreen NER");
   console.log("Using local ORT wasm path:", env.backends.onnx.wasm.wasmPaths);
   console.groupEnd();
 
@@ -32,7 +29,7 @@ export async function loadNER() {
   return nerPipeline;
 }
 
-export function normalizeNERResults(results) {
+function normalizeNERResults(results) {
   const normalized = results
     .map((r) => {
       const label = String(r.entity_group || r.entity || "").toUpperCase();
@@ -56,7 +53,7 @@ export function normalizeNERResults(results) {
     .filter(Boolean)
     .filter((x) => typeof x.start === "number" && typeof x.end === "number");
 
-  console.group("🧠 Mini Tecto NER");
+  console.group("🧠 Mini Tecto Offscreen NER");
   console.log("Raw NER output:", results);
   console.log("Normalized NER detections:", normalized);
   console.groupEnd();
@@ -64,16 +61,20 @@ export function normalizeNERResults(results) {
   return normalized;
 }
 
-export async function detectNER(text) {
-  if (!text || !text.trim()) return [];
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type !== "RUN_NER") return;
 
-  const ner = await loadNER();
+  (async () => {
+    try {
+      const ner = await loadNER();
+      const raw = await ner(message.text);
+      const detections = normalizeNERResults(raw);
+      sendResponse({ ok: true, detections });
+    } catch (err) {
+      console.error("Offscreen NER failed:", err);
+      sendResponse({ ok: false, error: String(err) });
+    }
+  })();
 
-  console.group("🧠 Mini Tecto NER");
-  console.log("Input to NER:", text);
-  const raw = await ner(text);
-  console.log("Raw pipeline output:", raw);
-  console.groupEnd();
-
-  return normalizeNERResults(raw);
-}
+  return true;
+});
