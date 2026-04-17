@@ -161,7 +161,7 @@ That separation keeps the content script lighter and isolates the heavier ONNX /
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/mini-tecto.git
+git clone https://github.com/Arman-mi/LLM-PII-detector.git
 cd mini-tecto
 ```
 
@@ -224,7 +224,7 @@ If policy requires blocking, the extension prevents submission until sensitive c
 
 ## Privacy
 
-Mini Tecto is designed to be local-first:
+Mini Tecto is designed to be local:
 
 - No external API calls for detection
 - No server-side processing
@@ -232,60 +232,6 @@ Mini Tecto is designed to be local-first:
 
 ---
 
-## Development Notes
 
-### Can I delete `node_modules`?
-Yes. It does not break the extension permanently. It only removes installed dependencies. You can restore them with:
 
-```bash
-npm install
-```
 
-### Can I delete `dist` or `dist-offscreen`?
-Not if you want the extension to run immediately. Those contain the built files Chrome actually loads.
-
-### Why is the extension large?
-Because local ML assets are included, especially:
-
-- ONNX Runtime WASM files
-- TinyBERT NER model bundle
-
-That size is expected for an on-device ML extension.
-
----
-
-## Future Improvements
-
-- Smaller NER model
-- Better UI/UX
-- More configurable policies
-- Additional entity types
-- Better domain-specific detection
-- Exportable audit log
-- Improved packaging / release flow
-
----
-
-## Contributing
-
-Contributions, issues, and suggestions are welcome.
-
-Typical flow:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make changes
-4. Commit and push
-5. Open a pull request
-
----
-
-## License
-
-MIT License
-
----
-
-## Author
-
-Built by Arman.
