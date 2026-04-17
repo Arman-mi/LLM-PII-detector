@@ -5,18 +5,92 @@
     <title>Mini Tecto</title>
     <style>
       body {
+        margin: 0;
+        min-width: 280px;
+        background: #140909;
+        color: #f6e7e7;
         font-family: Arial, sans-serif;
-        min-width: 240px;
+      }
+
+      .popup {
+        padding: 16px;
+      }
+
+      .popup-title {
+        font-size: 18px;
+        font-weight: 800;
+        margin-bottom: 10px;
+      }
+
+      .popup-subtitle {
+        color: #d1aaaa;
+        font-size: 13px;
+        line-height: 1.4;
+        margin-bottom: 14px;
+      }
+
+      .popup-button {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #7f1d1d;
+        border-radius: 10px;
+        background: linear-gradient(180deg, #dc2626 0%, #991b1b 100%);
+        color: white;
+        font-weight: 700;
+        cursor: pointer;
+        margin-bottom: 14px;
+      }
+
+      .popup-button:hover {
+        filter: brightness(1.06);
+      }
+
+      .popup-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .stat-card {
+        background: #211010;
+        border: 1px solid #4a1f1f;
+        border-radius: 12px;
         padding: 12px;
       }
-      h3 {
-        margin-top: 0;
+
+      .stat-label {
+        font-size: 12px;
+        color: #c89c9c;
+        margin-bottom: 6px;
+      }
+
+      .stat-value {
+        font-size: 22px;
+        font-weight: 800;
       }
     </style>
   </head>
   <body>
-    <h3>Mini Tecto</h3>
-    <p>Local PII detection is active on supported AI chat pages.</p>
+    <div class="popup">
+      <div class="popup-title">Mini Tecto</div>
+      <div class="popup-subtitle">
+        Local PII detection is active on supported AI chat pages.
+      </div>
+
+      <button id="show-panel-btn" class="popup-button">Show Panel</button>
+
+      <div class="popup-stats">
+        <div class="stat-card">
+          <div class="stat-label">Redactions</div>
+          <div class="stat-value" id="redactions-count">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Blocked sends</div>
+          <div class="stat-value" id="blocked-count">0</div>
+        </div>
+      </div>
+    </div>
+
     <script src="popup.js"></script>
   </body>
 </html>

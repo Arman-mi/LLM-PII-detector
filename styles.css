@@ -2,115 +2,196 @@
   position: fixed;
   top: 90px;
   right: 20px;
-  width: 340px;
-  background: #111827;
-  color: white;
-  border: 1px solid #374151;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  width: 360px;
+
+  /* base: charcoal with warm undertone */
+  background: rgba(206, 201, 201, 0.96);
+  color: #f4eaea;
+
+  border: 1px solid rgba(160, 70, 70, 0.14);
+  border-radius: 16px;
+
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.4),
+    0 6px 14px rgba(80, 20, 20, 0.15);
+
+  backdrop-filter: blur(12px);
   z-index: 999999;
   font-family: Arial, sans-serif;
   overflow: hidden;
 }
 
+/* HEADER */
 .mini-tecto-header {
-  background: #1f2937;
-  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  padding: 12px 14px;
   font-weight: 700;
-  border-bottom: 1px solid #374151;
+
+  border-bottom: 1px solid rgba(206, 198, 198, 0.08);
+
+  background: linear-gradient(
+    180deg,
+    rgba(38, 20, 20, 0.98),
+    rgba(22, 14, 14, 0.98)
+  );
 }
 
+.mini-tecto-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* subtle red indicator */
+.mini-tecto-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #b91c1c;
+  box-shadow: 0 0 8px rgba(185, 28, 28, 0.5);
+}
+
+/* CLOSE BUTTON */
+.mini-tecto-icon-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: #c9a6a6;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.mini-tecto-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+}
+
+/* STATUS */
 .mini-tecto-status {
-  padding: 10px 12px;
+  padding: 10px 14px;
   font-size: 13px;
   font-weight: 700;
-  border-bottom: 1px solid #374151;
+  border-bottom: 1px solid rgba(160, 70, 70, 0.05);
 }
 
 .mini-tecto-status-neutral {
-  background: #1f2937;
-  color: #d1d5db;
+  background: rgba(40, 20, 20, 0.95);
+  color: #d8bcbc;
 }
 
 .mini-tecto-status-safe {
-  background: #052e16;
-  color: #bbf7d0;
+  background: rgba(25, 45, 25, 0.9);
+  color: #b7e4b7;
 }
 
 .mini-tecto-status-warn {
-  background: #3b2f07;
-  color: #fde68a;
+  background: rgba(70, 40, 20, 0.9);
+  color: #f2d3a3;
 }
 
 .mini-tecto-status-block {
-  background: #450a0a;
-  color: #fecaca;
+  background: rgba(80, 20, 20, 0.95);
+  color: #f5b5b5;
 }
 
+/* BODY */
 .mini-tecto-body {
   padding: 12px;
-  max-height: 260px;
+  max-height: 280px;
   overflow-y: auto;
-  font-size: 14px;
+  background: rgba(151, 125, 125, 0.992);
 }
 
+/* LIST */
+.mini-tecto-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mini-tecto-list li {
+  padding: 10px;
+  margin-bottom: 8px;
+
+  border-radius: 12px;
+  border: 1px solid rgba(8, 3, 3, 0.08);
+
+  background: rgb(50, 47, 47);
+}
+
+/* TEXT */
+.mini-tecto-type {
+  font-weight: 700;
+  font-size: 12px;
+  color: #e11d48; /* clean red accent */
+}
+
+.mini-tecto-action {
+  font-size: 11px;
+  font-weight: 800;
+  color: #ffd6d6;
+  background: rgba(185, 28, 28, 0.15);
+  padding: 3px 7px;
+  border-radius: 999px;
+}
+
+.mini-tecto-text {
+  margin-top: 6px;
+  color: #f4eaea;
+  font-weight: 600;
+}
+
+.mini-tecto-reason {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #c4a0a0;
+}
+
+/* ACTIONS */
 .mini-tecto-actions {
   display: flex;
   gap: 8px;
   padding: 12px;
-  border-top: 1px solid #374151;
+  border-top: 1px solid rgba(160, 70, 70, 0.05);
 }
 
+/* BUTTON BASE */
 .mini-tecto-actions button {
   flex: 1;
-  padding: 8px 10px;
-  border: none;
-  border-radius: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-weight: 700;
   cursor: pointer;
-  background: #2563eb;
-  color: white;
-  font-weight: 600;
+  border: 1px solid transparent;
+
+  transition: all 0.15s ease;
+
+  box-shadow: 0 4px 10px rgba(0,0,0,0.25);
 }
 
 .mini-tecto-actions button:hover {
-  opacity: 0.92;
+  transform: translateY(-1px);
 }
 
-.mini-tecto-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.mini-tecto-actions button:active {
+  transform: translateY(1px) scale(0.98);
 }
 
-.mini-tecto-list li {
-  padding: 10px 0;
-  border-bottom: 1px solid #1f2937;
+/* PRIMARY BUTTON */
+#mini-tecto-redact-btn {
+  background: linear-gradient(180deg, #dc2626, #7f1d1d);
+  color: white;
 }
 
-.mini-tecto-list li:last-child {
-  border-bottom: none;
-}
-
-.mini-tecto-type {
-  font-weight: 700;
-  margin-right: 8px;
-  color: #93c5fd;
-}
-
-.mini-tecto-action {
-  font-size: 12px;
-  font-weight: 700;
-  color: #fca5a5;
-}
-
-.mini-tecto-text {
-  color: #e5e7eb;
-  word-break: break-word;
-  margin-top: 4px;
-}
-
-.mini-tecto-reason {
-  color: #9ca3af;
-  font-size: 12px;
-  margin-top: 4px;
+/* SECONDARY BUTTONS */
+#mini-tecto-restore-btn,
+#mini-tecto-refresh-btn {
+  background: #2a1616;
+  color: #f1d6d6;
+  border: 1px solid #4a2626;
 }
