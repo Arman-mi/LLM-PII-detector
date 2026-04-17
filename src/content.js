@@ -71,7 +71,13 @@ console.log("[Mini Tecto] content script loaded");
     const div = document.createElement("div");
     div.id = "mini-tecto-panel";
     div.innerHTML = `
-      <div class="mini-tecto-header">Mini Tecto</div>
+      <div class="mini-tecto-header">
+  <div class="mini-tecto-header-left">
+    <div class="mini-tecto-dot"></div>
+    <span>Mini Tecto</span>
+  </div>
+  <button id="mini-tecto-close-btn" class="mini-tecto-icon-btn" aria-label="Close panel">✕</button>
+</div>
       <div class="mini-tecto-status mini-tecto-status-neutral">No scan yet.</div>
       <div class="mini-tecto-body"></div>
       <div class="mini-tecto-actions">
@@ -85,6 +91,9 @@ console.log("[Mini Tecto] content script loaded");
     div.querySelector("#mini-tecto-refresh-btn").addEventListener("click", runScan);
     div.querySelector("#mini-tecto-redact-btn").addEventListener("click", redactByPolicy);
     div.querySelector("#mini-tecto-restore-btn").addEventListener("click", restoreOriginal);
+    div.querySelector("#mini-tecto-close-btn").addEventListener("click", () => {
+  div.style.display = "none";
+});
 
     return div;
   }
