@@ -5,15 +5,23 @@ function makePlaceholder(type, counters) {
 
 export function applyRedactions(text, detections, mode = "policy") {
   if (!detections?.length) {
-    return { redactedText: text, replacements: {} };
-  }
+  return { redactedText: text, replacements: {} };
+}
 
   const counters = {};
   const replacements = {};
   let result = "";
   let cursor = 0;
 
-  for (const d of detections) {
+  const safeDetections = detections.filter(
+  (d) =>
+    typeof d.start === "number" &&
+    typeof d.end === "number" &&
+    d.start >= 0 &&
+    d.end > d.start
+).sort((a, b) => a.start - b.start);
+
+for (const d of safeDetections) {
     result += text.slice(cursor, d.start);
 
     const shouldReplace =

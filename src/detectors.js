@@ -1,4 +1,3 @@
-import { detectNER } from "./ner-loader.js";
 
 function luhnCheck(num) {
   const digits = num.replace(/\D/g, "");
@@ -22,9 +21,9 @@ function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 async function fetchNERDetections(text) {
-  return new Promise((resolve) => {
+return new Promise((resolve) => {
     chrome.runtime.sendMessage(
-      { type: "RUN_NER_BG", text },
+      { type: "TEST_NER", text },
       (response) => {
         if (chrome.runtime.lastError) {
           console.error("NER messaging failed:", chrome.runtime.lastError);
@@ -33,7 +32,7 @@ async function fetchNERDetections(text) {
         }
 
         if (!response?.ok) {
-          console.error("NER background/offscreen failed:", response?.error);
+          console.error("NER response failed:", response?.error || response);
           resolve([]);
           return;
         }
@@ -43,6 +42,7 @@ async function fetchNERDetections(text) {
     );
   });
 }
+
 function makeDetection(value, start, end, type, reason) {
   return {
     id: crypto.randomUUID(),
@@ -171,35 +171,23 @@ function detectRegexAndHeuristics(text, customTerms = []) {
 export async function detectAllPII(text, customTerms = []) {
   const regexDetections = detectRegexAndHeuristics(text, customTerms);
 
+  let nerDetections = [];
+  try {
+    nerDetections = await  fetchNERDetections(text);
+  } catch (err) {
+    console.error("NER failed, continuing with regex/heuristics only:", err);
+  }
+
   const merged = dedupeAndResolveOverlaps([
-    ...regexDetections
+    ...regexDetections,
+    ...nerDetections
   ]);
 
   console.group("🔎 Mini Tecto Detector Merge");
   console.log("Regex / Heuristic detections:", regexDetections);
+  console.log("NER detections:", nerDetections);
   console.log("Merged detections:", merged);
   console.groupEnd();
 
   return merged;
-  // const regexDetections = detectRegexAndHeuristics(text, customTerms);
-
-  // let nerDetections = [];
-  // try {
-  //   nerDetections = await  fetchNERDetections(text);
-  // } catch (err) {
-  //   console.error("NER failed, continuing with regex/heuristics only:", err);
-  // }
-
-  // const merged = dedupeAndResolveOverlaps([
-  //   ...regexDetections,
-  //   ...nerDetections
-  // ]);
-
-  // console.group("🔎 Mini Tecto Detector Merge");
-  // console.log("Regex / Heuristic detections:", regexDetections);
-  // console.log("NER detections:", nerDetections);
-  // console.log("Merged detections:", merged);
-  // console.groupEnd();
-
-  // return merged;
 }

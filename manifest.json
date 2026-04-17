@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Mini Tecto",
-  "version": "0.5.0",
+  "version": "0.9.0",
   "description": "Local PII detection and redaction for AI chat inputs.",
-  "permissions": ["storage", "activeTab", "scripting"],
+  "permissions": ["storage", "activeTab", "scripting", "offscreen"],
   "host_permissions": [
     "https://chatgpt.com/*",
     "https://chat.openai.com/*"
@@ -15,6 +15,9 @@
     "default_popup": "popup.html"
   },
   "options_page": "options.html",
+  "content_security_policy": {
+  "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+},
   "content_scripts": [
     {
       "matches": [
@@ -25,5 +28,12 @@
       "css": ["styles.css"],
       "run_at": "document_idle"
     }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["ort/*", "dist-offscreen/ort/*"],
+      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"]
+    }
   ]
 }
+  

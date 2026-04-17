@@ -327,6 +327,7 @@ console.log("[Mini Tecto] content script loaded");
     );
     console.log("Replacement Map:", result.replacements);
   console.log("Redacted Output:", result.redactedText);
+  console.groupEnd();
 
 
     lastRedactionSession = {

@@ -7,8 +7,8 @@ export const DEFAULT_POLICY = {
   CUSTOM_TERM: "REDACT",
   POTENTIAL_ID: "REDACT",
   PERSON: "REDACT",
-  ORG: "WARN",
-  LOCATION: "WARN"
+  ORG: "REDACT",
+  LOCATION: "REDACT"
 };
 
 function getSeverity(type) {

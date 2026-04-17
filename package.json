@@ -1,0 +1,17 @@
+{
+  "name": "mini-tecto",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "build:offscreen": "vite build --config vite.offscreen.config.js"
+  
+
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.0.0"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0"
+  }
+}
