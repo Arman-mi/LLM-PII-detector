@@ -495,6 +495,21 @@ console.log("[Mini Tecto] content script loaded");
     const input = getChatInput();
     if (input) attachListener(input);
   }
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "MINI_TECTO_SHOW_PANEL") {
+    const panelEl = createPanel();
+    panelEl.style.display = "block";
+    sendResponse({ ok: true });
+    return true;
+  }
+
+  if (message?.type === "MINI_TECTO_HIDE_PANEL") {
+    const panelEl = document.getElementById("mini-tecto-panel");
+    if (panelEl) panelEl.style.display = "none";
+    sendResponse({ ok: true });
+    return true;
+  }
+});
 
   init();
 })();
