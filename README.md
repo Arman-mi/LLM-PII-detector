@@ -1,6 +1,6 @@
-# 🛡️ Mini Tecto
+# 🛡️ PII detector
 
-**Mini Tecto** is a Chrome extension for **local PII (Personally Identifiable Information) detection and redaction** on AI chat inputs such as ChatGPT.
+this project is a Chrome extension for **local PII (Personally Identifiable Information) detection and redaction** on AI chat inputs such as ChatGPT.
 
 It scans text before submission, detects sensitive information, and lets the user redact it locally before sending.
 
